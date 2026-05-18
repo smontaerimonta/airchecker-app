@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AirChecker Live Dashboard</title>
+    <title>AirChecker Dashboard Pro</title>
     
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -11,17 +11,22 @@
     <style>
         body { background: #050505; font-family: 'Courier New', monospace; padding: 10px; color: #e0e0e0; text-align: center; margin: 0; }
         .container { max-width: 800px; margin: auto; padding-bottom: 20px; }
-        .header { margin-bottom: 20px; }
+        .header { margin-bottom: 15px; }
         h1 { color: #00f3ff; text-transform: uppercase; letter-spacing: 2px; margin-top: 10px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(0,243,255,0.4); font-size: 1.5rem;}
         .status { font-size: 0.8rem; color: #888; margin-bottom: 15px; }
         
-        .card { background: #101010; padding: 15px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.5); margin-bottom: 20px; border: 1px solid #222; text-align: left; position: relative; }
+        /* Stile dei Pulsanti Tab */
+        .tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; }
+        .tab-btn { background: #1a1a1a; color: #777; border: 1px solid #333; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-family: 'Courier New', monospace; font-weight: bold; transition: 0.3s; flex: 1; font-size: 0.9rem;}
+        .tab-btn.active { background: #00f3ff; color: #000; box-shadow: 0 0 12px rgba(0,243,255,0.6); border: 1px solid #00f3ff;}
+
+        .card { background: #101010; padding: 15px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.5); margin-bottom: 20px; border: 1px solid #222; text-align: left; }
         .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
         .title { font-weight: bold; font-size: 1.1rem; text-transform: uppercase; }
         .valore { font-size: 2rem; font-weight: bold; text-shadow: 0 0 8px rgba(255,255,255,0.2); margin: 0; }
         .meteo-box { text-align: center; font-size: 1.5rem; font-weight: bold; }
         
-        .chart-container { position: relative; height: 150px; width: 100%; margin-top: 10px; }
+        .chart-container { position: relative; height: 160px; width: 100%; margin-top: 10px; }
 
         .t-co2 { color: #00f3ff; } 
         .t-voc { color: #00ff41; } 
@@ -33,12 +38,18 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>AirChecker Live</h1>
-            <div id="status" class="status">In attesa del segnale remoto... 📡</div>
+            <h1>AirChecker Pro</h1>
+            <div id="status" class="status">Sincronizzazione in corso... 📡</div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab-btn active" id="btn-24h" onclick="changeTab('24h')">LIVE & 24h</button>
+            <button class="tab-btn" id="btn-7d" onclick="changeTab('7d')">7 Giorni</button>
+            <button class="tab-btn" id="btn-31d" onclick="changeTab('31d')">30 Giorni</button>
         </div>
 
         <div class="card" style="text-align: center;">
-            <div class="title t-meteo" style="margin-bottom: 10px;">Clima Interno</div>
+            <div class="title t-meteo" style="margin-bottom: 10px;">Clima in Diretta</div>
             <div class="meteo-box t-meteo">
                 🌡️ <span id="val-temp">--.-</span>°C &nbsp;|&nbsp; 💧 <span id="val-hum">--</span>%
             </div>
@@ -46,156 +57,122 @@
 
         <div class="card">
             <div class="card-header t-co2">
-                <div class="title">CO2 (ppm)</div>
-                <div class="valore" id="val-co2">---</div>
+                <div class="title">CO2 (ppm)</div><div class="valore" id="val-co2">---</div>
             </div>
             <div class="chart-container"><canvas id="chart-co2"></canvas></div>
         </div>
 
         <div class="card">
             <div class="card-header t-voc">
-                <div class="title">VOC (Index)</div>
-                <div class="valore" id="val-voc">---</div>
+                <div class="title">VOC (Index)</div><div class="valore" id="val-voc">---</div>
             </div>
             <div class="chart-container"><canvas id="chart-voc"></canvas></div>
         </div>
 
         <div class="card">
             <div class="card-header t-nox">
-                <div class="title">NOx (Index)</div>
-                <div class="valore" id="val-nox">---</div>
+                <div class="title">NOx (Index)</div><div class="valore" id="val-nox">---</div>
             </div>
             <div class="chart-container"><canvas id="chart-nox"></canvas></div>
         </div>
 
-        <div class="card" id="card-pm1" style="display: none;">
-            <div class="card-header t-pm">
-                <div class="title">PM 1.0 (µg/m³)</div>
-                <div class="valore" id="val-pm1">---</div>
-            </div>
-            <div class="chart-container"><canvas id="chart-pm1"></canvas></div>
-        </div>
-
         <div class="card" id="card-pm25" style="display: none;">
             <div class="card-header t-pm">
-                <div class="title">PM 2.5 (µg/m³)</div>
-                <div class="valore" id="val-pm25">---</div>
+                <div class="title">PM 2.5 (µg/m³)</div><div class="valore" id="val-pm25">---</div>
             </div>
             <div class="chart-container"><canvas id="chart-pm25"></canvas></div>
-        </div>
-
-        <div class="card" id="card-pm4" style="display: none;">
-            <div class="card-header t-pm">
-                <div class="title">PM 4.0 (µg/m³)</div>
-                <div class="valore" id="val-pm4">---</div>
-            </div>
-            <div class="chart-container"><canvas id="chart-pm4"></canvas></div>
-        </div>
-
-        <div class="card" id="card-pm10" style="display: none;">
-            <div class="card-header t-pm">
-                <div class="title">PM 10.0 (µg/m³)</div>
-                <div class="valore" id="val-pm10">---</div>
-            </div>
-            <div class="chart-container"><canvas id="chart-pm10"></canvas></div>
         </div>
     </div>
 
     <script>
-        Chart.defaults.color = '#888';
-        Chart.defaults.borderColor = '#222';
-        Chart.defaults.font.family = "'Courier New', monospace";
-        
-        const maxDataPoints = 30;
-        
-        const chartOptions = {
-            responsive: true, maintainAspectRatio: false,
-            animation: { duration: 400 },
-            elements: { point: { radius: 0, hitRadius: 10 }, line: { tension: 0.4 } },
-            plugins: { legend: { display: false } },
-            scales: { x: { display: false }, y: { beginAtZero: false, position: 'right' } }
-        };
+        Chart.defaults.color = '#888'; Chart.defaults.borderColor = '#222'; Chart.defaults.font.family = "'Courier New', monospace";
+        const chartOpts = { responsive: true, maintainAspectRatio: false, animation: { duration: 0 }, elements: { point: { radius: 0, hitRadius: 10 }, line: { tension: 0.3 } }, plugins: { legend: { display: false } }, scales: { x: { display: true, ticks:{maxTicksLimit: 6} }, y: { position: 'right' } } };
 
-        function createLiveChart(ctxId, color) {
-            return new Chart(document.getElementById(ctxId), {
-                type: 'line',
-                data: { labels: [], datasets: [{ data: [], borderColor: color, backgroundColor: color + '20', fill: true, borderWidth: 2 }] },
-                options: chartOptions
-            });
+        function initChart(ctx, col) { return new Chart(document.getElementById(ctx), { type: 'line', data: { labels: [], datasets: [{ data: [], borderColor: col, backgroundColor: col+'20', fill: true, borderWidth: 2 }] }, options: chartOpts }); }
+
+        const cCO2 = initChart('chart-co2', '#00f3ff');
+        const cVOC = initChart('chart-voc', '#00ff41');
+        const cNOx = initChart('chart-nox', '#ffee00');
+        const cPM25 = initChart('chart-pm25', '#bc13fe');
+
+        let currentTab = '24h';
+        let histData = { '24h': [], '7d': [], '31d': [] };
+        let hasPM = false;
+
+        function changeTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + tab).classList.add('active');
+            drawHistory(tab);
         }
 
-        const chartCO2 = createLiveChart('chart-co2', '#00f3ff');
-        const chartVOC = createLiveChart('chart-voc', '#00ff41');
-        const chartNOx = createLiveChart('chart-nox', '#ffee00');
-        const chartPM1 = createLiveChart('chart-pm1', '#bc13fe');
-        const chartPM25 = createLiveChart('chart-pm25', '#bc13fe');
-        const chartPM4 = createLiveChart('chart-pm4', '#bc13fe');
-        const chartPM10 = createLiveChart('chart-pm10', '#bc13fe');
+        function forceChartDraw(chart, labels, data) {
+            chart.data.labels = labels; chart.data.datasets[0].data = data; chart.update();
+        }
 
-        function updateChart(chart, label, dataValue) {
-            chart.data.labels.push(label);
-            chart.data.datasets[0].data.push(dataValue);
-            if (chart.data.labels.length > maxDataPoints) {
-                chart.data.labels.shift();
-                chart.data.datasets[0].data.shift();
-            }
-            chart.update();
+        function drawHistory(period) {
+            let data = histData[period];
+            if (!data || data.length === 0) return;
+            
+            let labels = data.map(p => {
+                let d = new Date(p[0]*1000);
+                return period === '24h' ? d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : d.toLocaleDateString([], {day:'2-digit', month:'2-digit'}) + " " + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            });
+
+            forceChartDraw(cCO2, labels, data.map(p => p[1]));
+            forceChartDraw(cVOC, labels, data.map(p => p[2]));
+            forceChartDraw(cNOx, labels, data.map(p => p[3]));
+            if(hasPM) forceChartDraw(cPM25, labels, data.map(p => p[4]));
         }
 
         const urlParams = new URLSearchParams(window.location.search);
         const mac = urlParams.get('id');
 
-        if (!mac) {
-            document.getElementById('status').innerHTML = "🔴 Errore: ID Dispositivo mancante nel link!";
-        } else {
+        if (mac) {
             const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
-
             client.on('connect', function () {
-                document.getElementById('status').innerHTML = "🟢 Connesso al dispositivo in diretta";
+                document.getElementById('status').innerHTML = "🟢 Connesso, Sistema Operativo...";
                 document.getElementById('status').style.color = "#00ff41";
                 client.subscribe('airchecker/' + mac + '/live');
+                client.subscribe('airchecker/' + mac + '/hist/24h');
+                client.subscribe('airchecker/' + mac + '/hist/7d');
+                client.subscribe('airchecker/' + mac + '/hist/31d');
             });
 
             client.on('message', function (topic, message) {
                 try {
-                    const dati = JSON.parse(message.toString());
-                    const timeNow = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+                    const payload = JSON.parse(message.toString());
                     
-                    document.getElementById('val-co2').innerText = dati.co2;
-                    document.getElementById('val-voc').innerText = dati.voc;
-                    document.getElementById('val-nox').innerText = dati.nox;
-                    document.getElementById('val-temp').innerText = dati.temp.toFixed(1);
-                    document.getElementById('val-hum').innerText = Math.round(dati.hum);
-                    
-                    updateChart(chartCO2, timeNow, dati.co2);
-                    updateChart(chartVOC, timeNow, dati.voc);
-                    updateChart(chartNOx, timeNow, dati.nox);
+                    if (topic.includes('/hist/')) {
+                        histData[payload.p] = payload.d; // Salva lo storico ricevuto
+                        if (currentTab === payload.p) drawHistory(payload.p);
+                    } 
+                    else if (topic.includes('/live')) {
+                        document.getElementById('val-co2').innerText = payload.co2;
+                        document.getElementById('val-voc').innerText = payload.voc;
+                        document.getElementById('val-nox').innerText = payload.nox;
+                        document.getElementById('val-temp').innerText = payload.temp.toFixed(1);
+                        document.getElementById('val-hum').innerText = Math.round(payload.hum);
+                        
+                        if (payload['pm2.5'] !== undefined) {
+                            hasPM = true;
+                            document.getElementById('card-pm25').style.display = "block";
+                            document.getElementById('val-pm25').innerText = payload['pm2.5'].toFixed(1);
+                        }
 
-                    if (dati['pm2.5'] !== undefined) {
-                        document.getElementById('card-pm1').style.display = "block";
-                        document.getElementById('val-pm1').innerText = dati['pm1.0'].toFixed(1);
-                        updateChart(chartPM1, timeNow, dati['pm1.0']);
-
-                        document.getElementById('card-pm25').style.display = "block";
-                        document.getElementById('val-pm25').innerText = dati['pm2.5'].toFixed(1);
-                        updateChart(chartPM25, timeNow, dati['pm2.5']);
-
-                        document.getElementById('card-pm4').style.display = "block";
-                        document.getElementById('val-pm4').innerText = dati['pm4.0'].toFixed(1);
-                        updateChart(chartPM4, timeNow, dati['pm4.0']);
-
-                        document.getElementById('card-pm10').style.display = "block";
-                        document.getElementById('val-pm10').innerText = dati['pm10.0'].toFixed(1);
-                        updateChart(chartPM10, timeNow, dati['pm10.0']);
+                        // Se siamo nella vista 24h, facciamo scorrere il grafico in diretta!
+                        if (currentTab === '24h') {
+                            const timeNow = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                            function appendTo(chart, val) {
+                                chart.data.labels.push(timeNow); chart.data.datasets[0].data.push(val);
+                                if (chart.data.labels.length > 96) { chart.data.labels.shift(); chart.data.datasets[0].data.shift(); }
+                                chart.update();
+                            }
+                            appendTo(cCO2, payload.co2); appendTo(cVOC, payload.voc); appendTo(cNOx, payload.nox);
+                            if(hasPM) appendTo(cPM25, payload['pm2.5']);
+                        }
                     }
-                } catch (e) {
-                    console.log("Errore JSON", e);
-                }
-            });
-
-            client.on('error', function (error) {
-                document.getElementById('status').innerText = "🔴 Server offline o disconnesso.";
-                document.getElementById('status').style.color = "red";
+                } catch (e) { console.log(e); }
             });
         }
     </script>
