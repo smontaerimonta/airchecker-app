@@ -33,6 +33,9 @@
         .t-nox { color: #ffee00; } 
         .t-pm { color: #bc13fe; } 
         .t-meteo { color: #ff9f43; }
+        
+        .pm-extra-grid { display: flex; justify-content: space-around; font-size: 1.1rem; text-align: center; margin-top: 10px; }
+        .pm-extra-val { font-size: 1.5rem; font-weight: bold; text-shadow: 0 0 8px rgba(255,255,255,0.2); }
     </style>
 </head>
 <body>
@@ -81,6 +84,15 @@
                 <div class="title">PM 2.5 (µg/m³)</div><div class="valore" id="val-pm25">---</div>
             </div>
             <div class="chart-container"><canvas id="chart-pm25"></canvas></div>
+        </div>
+        
+        <div class="card" id="card-pm-extra" style="display: none;">
+            <div class="title t-pm" style="text-align: center;">Dettaglio Polveri (Live)</div>
+            <div class="pm-extra-grid t-pm">
+                <div>PM 1.0<br><span class="pm-extra-val" id="val-pm1">--</span></div>
+                <div>PM 4.0<br><span class="pm-extra-val" id="val-pm4">--</span></div>
+                <div>PM 10.0<br><span class="pm-extra-val" id="val-pm10">--</span></div>
+            </div>
         </div>
     </div>
 
@@ -158,6 +170,14 @@
                             hasPM = true;
                             document.getElementById('card-pm25').style.display = "block";
                             document.getElementById('val-pm25').innerText = payload['pm2.5'].toFixed(1);
+                            
+                            // Aggiorna anche i valori extra (Solo in tempo reale)
+                            if (payload['pm1.0'] !== undefined) {
+                                document.getElementById('card-pm-extra').style.display = "block";
+                                document.getElementById('val-pm1').innerText = payload['pm1.0'].toFixed(1);
+                                document.getElementById('val-pm4').innerText = payload['pm4.0'].toFixed(1);
+                                document.getElementById('val-pm10').innerText = payload['pm10.0'].toFixed(1);
+                            }
                         }
 
                         // Se siamo nella vista 24h, facciamo scorrere il grafico in diretta!
