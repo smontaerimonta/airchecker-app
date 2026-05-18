@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AirChecker Live Dashboard</title>
+    
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    
+    <style>
+        body { background: #050505; font-family: 'Courier New', monospace; padding: 15px; color: #e0e0e0; text-align: center; margin: 0; }
+        .container { max-width: 600px; margin: auto; padding-bottom: 20px; }
+        .card { background: #101010; padding: 20px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.5); margin-bottom: 15px; border: 1px solid #222; text-align: center; }
+        h1 { color: #00f3ff; text-transform: uppercase; letter-spacing: 2px; margin-top: 10px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(0,243,255,0.4); font-size: 1.5rem;}
+        .status { font-size: 0.8rem; color: #888; margin-bottom: 25px; }
+        .title { font-weight: bold; font-size: 1.1rem; text-transform: uppercase; }
+        .valore { font-size: 2.5rem; font-weight: bold; margin-top: 10px; text-shadow: 0 0 8px rgba(255,255,255,0.2); }
+        
+        /* Colori Neon per ogni sensore */
+        .t-co2 { color: #00f3ff; } 
+        .t-voc { color: #00ff41; } 
+        .t-nox { color: #ffee00; } 
+        .t-pm { color: #bc13fe; } 
+        .t-meteo { color: #ff9f43; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AirChecker Pro</h1>
+        <div id="status" class="status">In attesa del segnale... 📡</div>
+
+        <div class="card">
+            <div class="title t-co2">CO2 (Anidride Carbonica)</div>
+            <div class="valore t-co2" id="val-co2">--- <span style="font-size:1rem;">ppm</span></div>
+        </div>
+
+        <div class="card">
+            <div class="title t-voc">VOC (Composti Volatili)</div>
+            <div class="valore t-voc" id="val-voc">--- <span style="font-size:1rem;">Idx</span></div>
+        </div>
+
+        <div class="card">
+            <div class="title t-nox">NOx (Ossidi di Azoto)</div>
+            <div class="valore t-nox" id="val-nox">--- <span style="font-size:1rem;">Idx</span></div>
+        </div>
+
+        <div class="card" id="card-pm" style="display: none;">
+            <div class="title t-pm">PM 2.5 (Polveri Sottili)</div>
+            <div class="valore t-pm" id="val-pm25">--- <span style="font-size:1rem;">µg/m³</span></div>
+        </div>
+
+        <div class="card">
+            <div class="title t-meteo">Clima Interno</div>
+            <div class="valore t-meteo" style="font-size:2rem;"><span id="val-temp">--.-</span> <span style="font-size:1rem;">°C</span> | <span id="val-hum">--</span> <span style="font-size:1rem;">%</span></div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Leggi la targa (MAC address) dal link segreto di Telegram
+        const urlParams = new URLSearchParams(window.location.search);
+        const mac = urlParams.get('id');
+
+        if (!mac) {
+            document.getElementById('status').innerText = "🔴 Errore: ID Dispositivo mancante!";
+            document.getElementById('status').style.color = "red";
+        } else {
+            // 2. Connettiti al Postino pubblico HiveMQ (in modalità sicura WSS)
+            const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+
+            client.on('connect', function () {
+                document.getElementById('status').innerText = "🟢 Connesso (ID: " + mac + ")";
+                document.getElementById('status').style.color = "#00ff41";
+                
+                // 3. Iscriviti alla stanza segreta del TUO specifico dispositivo
+                client.subscribe('airchecker/' + mac + '/live');
+            });
+
+            // 4. Ogni volta che l'ESP32 manda un dato nuovo, aggiorna lo schermo
+            client.on('message', function (topic, message) {
+                try {
+                    const dati = JSON.parse(message.toString());
+                    
+                    document.getElementById('val-co2').innerText = dati.co2;
+                    document.getElementById('val-voc').innerText = dati.voc;
+                    document.getElementById('val-nox').innerText = dati.nox;
+                    document.getElementById('val-temp').innerText = dati.temp.toFixed(1);
+                    document.getElementById('val-hum').innerText = Math.round(dati.hum);
+                    
+                    // Se l'ESP32 ha l'espansione PM, mostra la card
+                    if (dati['pm2.5'] !== undefined) {
+                        document.getElementById('card-pm').style.display = "block";
+                        document.getElementById('val-pm25').innerText = dati['pm2.5'].toFixed(1);
+                    }
+                } catch (e) {
+                    console.log("Errore lettura dati", e);
+                }
+            });
+
+            client.on('error', function (error) {
+                document.getElementById('status').innerText = "🔴 Server offline. Riprovo...";
+                document.getElementById('status').style.color = "red";
+            });
+        }
+    </script>
+</body>
+</html>
