@@ -6,17 +6,24 @@
     <title>AirChecker Live Dashboard</title>
     
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
-        body { background: #050505; font-family: 'Courier New', monospace; padding: 15px; color: #e0e0e0; text-align: center; margin: 0; }
-        .container { max-width: 600px; margin: auto; padding-bottom: 20px; }
-        .card { background: #101010; padding: 20px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.5); margin-bottom: 15px; border: 1px solid #222; text-align: center; }
+        body { background: #050505; font-family: 'Courier New', monospace; padding: 10px; color: #e0e0e0; text-align: center; margin: 0; }
+        .container { max-width: 800px; margin: auto; padding-bottom: 20px; }
+        .header { margin-bottom: 20px; }
         h1 { color: #00f3ff; text-transform: uppercase; letter-spacing: 2px; margin-top: 10px; margin-bottom: 5px; text-shadow: 0 0 10px rgba(0,243,255,0.4); font-size: 1.5rem;}
-        .status { font-size: 0.8rem; color: #888; margin-bottom: 25px; }
-        .title { font-weight: bold; font-size: 1.1rem; text-transform: uppercase; }
-        .valore { font-size: 2.5rem; font-weight: bold; margin-top: 10px; text-shadow: 0 0 8px rgba(255,255,255,0.2); }
+        .status { font-size: 0.8rem; color: #888; margin-bottom: 15px; }
         
-        /* Colori Neon per ogni sensore */
+        .card { background: #101010; padding: 15px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.5); margin-bottom: 20px; border: 1px solid #222; text-align: left; position: relative; }
+        .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+        .title { font-weight: bold; font-size: 1.1rem; text-transform: uppercase; }
+        .valore { font-size: 2rem; font-weight: bold; text-shadow: 0 0 8px rgba(255,255,255,0.2); margin: 0; }
+        .meteo-box { text-align: center; font-size: 1.5rem; font-weight: bold; }
+        
+        .chart-container { position: relative; height: 150px; width: 100%; margin-top: 10px; }
+
+        /* Colori Neon */
         .t-co2 { color: #00f3ff; } 
         .t-voc { color: #00ff41; } 
         .t-nox { color: #ffee00; } 
@@ -26,78 +33,136 @@
 </head>
 <body>
     <div class="container">
-        <h1>AirChecker Pro</h1>
-        <div id="status" class="status">In attesa del segnale... 📡</div>
+        <div class="header">
+            <h1>AirChecker Live</h1>
+            <div id="status" class="status">In attesa del segnale remoto... 📡</div>
+        </div>
 
-        <div class="card">
-            <div class="title t-co2">CO2 (Anidride Carbonica)</div>
-            <div class="valore t-co2" id="val-co2">--- <span style="font-size:1rem;">ppm</span></div>
+        <div class="card" style="text-align: center;">
+            <div class="title t-meteo" style="margin-bottom: 10px;">Clima Interno</div>
+            <div class="meteo-box t-meteo">
+                🌡️ <span id="val-temp">--.-</span>°C &nbsp;|&nbsp; 💧 <span id="val-hum">--</span>%
+            </div>
         </div>
 
         <div class="card">
-            <div class="title t-voc">VOC (Composti Volatili)</div>
-            <div class="valore t-voc" id="val-voc">--- <span style="font-size:1rem;">Idx</span></div>
+            <div class="card-header t-co2">
+                <div class="title">CO2 (ppm)</div>
+                <div class="valore" id="val-co2">---</div>
+            </div>
+            <div class="chart-container"><canvas id="chart-co2"></canvas></div>
         </div>
 
         <div class="card">
-            <div class="title t-nox">NOx (Ossidi di Azoto)</div>
-            <div class="valore t-nox" id="val-nox">--- <span style="font-size:1rem;">Idx</span></div>
+            <div class="card-header t-voc">
+                <div class="title">VOC (Index)</div>
+                <div class="valore" id="val-voc">---</div>
+            </div>
+            <div class="chart-container"><canvas id="chart-voc"></canvas></div>
+        </div>
+
+        <div class="card">
+            <div class="card-header t-nox">
+                <div class="title">NOx (Index)</div>
+                <div class="valore" id="val-nox">---</div>
+            </div>
+            <div class="chart-container"><canvas id="chart-nox"></canvas></div>
         </div>
 
         <div class="card" id="card-pm" style="display: none;">
-            <div class="title t-pm">PM 2.5 (Polveri Sottili)</div>
-            <div class="valore t-pm" id="val-pm25">--- <span style="font-size:1rem;">µg/m³</span></div>
-        </div>
-
-        <div class="card">
-            <div class="title t-meteo">Clima Interno</div>
-            <div class="valore t-meteo" style="font-size:2rem;"><span id="val-temp">--.-</span> <span style="font-size:1rem;">°C</span> | <span id="val-hum">--</span> <span style="font-size:1rem;">%</span></div>
+            <div class="card-header t-pm">
+                <div class="title">PM 2.5 (µg/m³)</div>
+                <div class="valore" id="val-pm25">---</div>
+            </div>
+            <div class="chart-container"><canvas id="chart-pm"></canvas></div>
         </div>
     </div>
 
     <script>
-        // 1. Leggi la targa (MAC address) dal link segreto di Telegram
+        // --- CONFIGURAZIONE GRAFICI (Chart.js) ---
+        Chart.defaults.color = '#888';
+        Chart.defaults.borderColor = '#222';
+        Chart.defaults.font.family = "'Courier New', monospace";
+        
+        const maxDataPoints = 30; // Quanti punti mostrare sullo schermo
+        
+        const chartOptions = {
+            responsive: true, maintainAspectRatio: false,
+            animation: { duration: 400 },
+            elements: { point: { radius: 0, hitRadius: 10 }, line: { tension: 0.4 } },
+            plugins: { legend: { display: false } },
+            scales: { x: { display: false }, y: { beginAtZero: false, position: 'right' } }
+        };
+
+        function createLiveChart(ctxId, color) {
+            return new Chart(document.getElementById(ctxId), {
+                type: 'line',
+                data: { labels: [], datasets: [{ data: [], borderColor: color, backgroundColor: color + '20', fill: true, borderWidth: 2 }] },
+                options: chartOptions
+            });
+        }
+
+        // Creazione istanze grafici
+        const chartCO2 = createLiveChart('chart-co2', '#00f3ff');
+        const chartVOC = createLiveChart('chart-voc', '#00ff41');
+        const chartNOx = createLiveChart('chart-nox', '#ffee00');
+        const chartPM  = createLiveChart('chart-pm', '#bc13fe');
+
+        function updateChart(chart, label, dataValue) {
+            chart.data.labels.push(label);
+            chart.data.datasets[0].data.push(dataValue);
+            if (chart.data.labels.length > maxDataPoints) {
+                chart.data.labels.shift();
+                chart.data.datasets[0].data.shift();
+            }
+            chart.update();
+        }
+
+        // --- CONNESSIONE MQTT E AGGIORNAMENTO DATI ---
         const urlParams = new URLSearchParams(window.location.search);
         const mac = urlParams.get('id');
 
         if (!mac) {
-            document.getElementById('status').innerText = "🔴 Errore: ID Dispositivo mancante!";
-            document.getElementById('status').style.color = "red";
+            document.getElementById('status').innerHTML = "🔴 Errore: ID Dispositivo mancante nel link!";
         } else {
-            // 2. Connettiti al Postino pubblico HiveMQ (in modalità sicura WSS)
             const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 
             client.on('connect', function () {
-                document.getElementById('status').innerText = "🟢 Connesso (ID: " + mac + ")";
+                document.getElementById('status').innerHTML = "🟢 Connesso al dispositivo in diretta";
                 document.getElementById('status').style.color = "#00ff41";
-                
-                // 3. Iscriviti alla stanza segreta del TUO specifico dispositivo
                 client.subscribe('airchecker/' + mac + '/live');
             });
 
-            // 4. Ogni volta che l'ESP32 manda un dato nuovo, aggiorna lo schermo
             client.on('message', function (topic, message) {
                 try {
                     const dati = JSON.parse(message.toString());
+                    const timeNow = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
                     
+                    // Aggiorna i testi
                     document.getElementById('val-co2').innerText = dati.co2;
                     document.getElementById('val-voc').innerText = dati.voc;
                     document.getElementById('val-nox').innerText = dati.nox;
                     document.getElementById('val-temp').innerText = dati.temp.toFixed(1);
                     document.getElementById('val-hum').innerText = Math.round(dati.hum);
                     
-                    // Se l'ESP32 ha l'espansione PM, mostra la card
+                    // Aggiorna i grafici in tempo reale
+                    updateChart(chartCO2, timeNow, dati.co2);
+                    updateChart(chartVOC, timeNow, dati.voc);
+                    updateChart(chartNOx, timeNow, dati.nox);
+
+                    // Gestione Sensore Polveri (PM)
                     if (dati['pm2.5'] !== undefined) {
                         document.getElementById('card-pm').style.display = "block";
                         document.getElementById('val-pm25').innerText = dati['pm2.5'].toFixed(1);
+                        updateChart(chartPM, timeNow, dati['pm2.5']);
                     }
                 } catch (e) {
-                    console.log("Errore lettura dati", e);
+                    console.log("Errore JSON", e);
                 }
             });
 
             client.on('error', function (error) {
-                document.getElementById('status').innerText = "🔴 Server offline. Riprovo...";
+                document.getElementById('status').innerText = "🔴 Server offline o disconnesso.";
                 document.getElementById('status').style.color = "red";
             });
         }
