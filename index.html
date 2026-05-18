@@ -23,7 +23,6 @@
         
         .chart-container { position: relative; height: 150px; width: 100%; margin-top: 10px; }
 
-        /* Colori Neon */
         .t-co2 { color: #00f3ff; } 
         .t-voc { color: #00ff41; } 
         .t-nox { color: #ffee00; } 
@@ -69,22 +68,45 @@
             <div class="chart-container"><canvas id="chart-nox"></canvas></div>
         </div>
 
-        <div class="card" id="card-pm" style="display: none;">
+        <div class="card" id="card-pm1" style="display: none;">
+            <div class="card-header t-pm">
+                <div class="title">PM 1.0 (µg/m³)</div>
+                <div class="valore" id="val-pm1">---</div>
+            </div>
+            <div class="chart-container"><canvas id="chart-pm1"></canvas></div>
+        </div>
+
+        <div class="card" id="card-pm25" style="display: none;">
             <div class="card-header t-pm">
                 <div class="title">PM 2.5 (µg/m³)</div>
                 <div class="valore" id="val-pm25">---</div>
             </div>
-            <div class="chart-container"><canvas id="chart-pm"></canvas></div>
+            <div class="chart-container"><canvas id="chart-pm25"></canvas></div>
+        </div>
+
+        <div class="card" id="card-pm4" style="display: none;">
+            <div class="card-header t-pm">
+                <div class="title">PM 4.0 (µg/m³)</div>
+                <div class="valore" id="val-pm4">---</div>
+            </div>
+            <div class="chart-container"><canvas id="chart-pm4"></canvas></div>
+        </div>
+
+        <div class="card" id="card-pm10" style="display: none;">
+            <div class="card-header t-pm">
+                <div class="title">PM 10.0 (µg/m³)</div>
+                <div class="valore" id="val-pm10">---</div>
+            </div>
+            <div class="chart-container"><canvas id="chart-pm10"></canvas></div>
         </div>
     </div>
 
     <script>
-        // --- CONFIGURAZIONE GRAFICI (Chart.js) ---
         Chart.defaults.color = '#888';
         Chart.defaults.borderColor = '#222';
         Chart.defaults.font.family = "'Courier New', monospace";
         
-        const maxDataPoints = 30; // Quanti punti mostrare sullo schermo
+        const maxDataPoints = 30;
         
         const chartOptions = {
             responsive: true, maintainAspectRatio: false,
@@ -102,11 +124,13 @@
             });
         }
 
-        // Creazione istanze grafici
         const chartCO2 = createLiveChart('chart-co2', '#00f3ff');
         const chartVOC = createLiveChart('chart-voc', '#00ff41');
         const chartNOx = createLiveChart('chart-nox', '#ffee00');
-        const chartPM  = createLiveChart('chart-pm', '#bc13fe');
+        const chartPM1 = createLiveChart('chart-pm1', '#bc13fe');
+        const chartPM25 = createLiveChart('chart-pm25', '#bc13fe');
+        const chartPM4 = createLiveChart('chart-pm4', '#bc13fe');
+        const chartPM10 = createLiveChart('chart-pm10', '#bc13fe');
 
         function updateChart(chart, label, dataValue) {
             chart.data.labels.push(label);
@@ -118,7 +142,6 @@
             chart.update();
         }
 
-        // --- CONNESSIONE MQTT E AGGIORNAMENTO DATI ---
         const urlParams = new URLSearchParams(window.location.search);
         const mac = urlParams.get('id');
 
@@ -138,23 +161,32 @@
                     const dati = JSON.parse(message.toString());
                     const timeNow = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
                     
-                    // Aggiorna i testi
                     document.getElementById('val-co2').innerText = dati.co2;
                     document.getElementById('val-voc').innerText = dati.voc;
                     document.getElementById('val-nox').innerText = dati.nox;
                     document.getElementById('val-temp').innerText = dati.temp.toFixed(1);
                     document.getElementById('val-hum').innerText = Math.round(dati.hum);
                     
-                    // Aggiorna i grafici in tempo reale
                     updateChart(chartCO2, timeNow, dati.co2);
                     updateChart(chartVOC, timeNow, dati.voc);
                     updateChart(chartNOx, timeNow, dati.nox);
 
-                    // Gestione Sensore Polveri (PM)
                     if (dati['pm2.5'] !== undefined) {
-                        document.getElementById('card-pm').style.display = "block";
+                        document.getElementById('card-pm1').style.display = "block";
+                        document.getElementById('val-pm1').innerText = dati['pm1.0'].toFixed(1);
+                        updateChart(chartPM1, timeNow, dati['pm1.0']);
+
+                        document.getElementById('card-pm25').style.display = "block";
                         document.getElementById('val-pm25').innerText = dati['pm2.5'].toFixed(1);
-                        updateChart(chartPM, timeNow, dati['pm2.5']);
+                        updateChart(chartPM25, timeNow, dati['pm2.5']);
+
+                        document.getElementById('card-pm4').style.display = "block";
+                        document.getElementById('val-pm4').innerText = dati['pm4.0'].toFixed(1);
+                        updateChart(chartPM4, timeNow, dati['pm4.0']);
+
+                        document.getElementById('card-pm10').style.display = "block";
+                        document.getElementById('val-pm10').innerText = dati['pm10.0'].toFixed(1);
+                        updateChart(chartPM10, timeNow, dati['pm10.0']);
                     }
                 } catch (e) {
                     console.log("Errore JSON", e);
